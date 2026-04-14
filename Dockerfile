@@ -2,10 +2,15 @@
 # Install uv
 FROM python:3.12-slim
 
-# Install tini
+# Install tini and Node.js (for mcp-proxy)
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends tini && \
+    apt-get install -y --no-install-recommends tini curl && \
+    curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && \
+    apt-get install -y nodejs && \
     rm -rf /var/lib/apt/lists/*
+
+# Install mcp-proxy globally
+RUN npm install -g mcp-proxy
 
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /bin/uv
 
@@ -25,6 +30,7 @@ COPY . /app
 # Sync the project
 RUN uv sync --frozen
 
-# Run the server
-ENTRYPOINT ["tini", "--", "uv", "run", "mcp-email-server"]
-CMD ["stdio"]
+EXPOSE 8080
+
+# Run mcp-proxy in front of the email server
+CMD mcp-proxy --port ${PORT:-8080} -- uv run mcp-email-server stdio
